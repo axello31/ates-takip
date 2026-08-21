@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EAF3F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ateş Takip">
+<title>Ateş Takip</title>
+<style>
+  :root{
+    --bg:#EEF5F8;
+    --bg2:#E3EEF3;
+    --card:#FFFFFF;
+    --ink:#26333F;
+    --muted:#7A8994;
+    --line:#DCE8ED;
+    --teal:#4C9AAF;
+    --teal-soft:#DBEEF2;
+    --fever:#E8836B;
+    --dolven:#5E86D6;
+    --calpol:#C97BA6;
+    --antibiotic:#8B6FCF;
+    --other:#5FB08A;
+    --ok:#4FA57E;
+    --warn:#E5A94F;
+    --shadow:0 6px 22px rgba(38,74,92,.10);
+    --shadow-sm:0 2px 8px rgba(38,74,92,.08);
+    --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased;
+    font-size:16px;line-height:1.4;
+    padding-bottom:calc(78px + env(safe-area-inset-bottom));
+  }
+  .tabnum{font-variant-numeric:tabular-nums}
+  button{font-family:inherit}
+
+  /* Header */
+  header{
+    position:sticky;top:0;z-index:20;
+    background:rgba(238,245,248,.85);
+    backdrop-filter:saturate(150%) blur(10px);
+    -webkit-backdrop-filter:saturate(150%) blur(10px);
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .head-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em;font-size:19px}
+  .brand .dot{font-size:20px}
+  .patient-chip{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:7px 12px 7px 10px;
+    box-shadow:var(--shadow-sm);cursor:pointer;font-weight:700;font-size:14px;max-width:60vw;
+  }
+  .patient-chip .who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .patient-chip .av{
+    width:24px;height:24px;border-radius:999px;background:var(--teal-soft);color:var(--teal);
+    display:grid;place-items:center;font-weight:800;font-size:12px;flex:0 0 auto;
+  }
+  .caret{color:var(--muted);font-size:12px}
+
+  /* Layout */
+  main{max-width:560px;margin:0 auto;padding:16px 16px 8px}
+  .view{display:none}
+  .view.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow);padding:16px;margin-bottom:14px;
+  }
+  .card h2{margin:0 0 3px;font-size:16px;font-weight:800;letter-spacing:-.01em}
+  .card .sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+  .section-label{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:2px 0 10px}
+
+  label.f{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:0 0 6px}
+  input,select{
+    width:100%;font-size:16px;color:var(--ink);
+    background:#F7FAFC;border:1.5px solid var(--line);border-radius:12px;
+    padding:12px 13px;outline:none;transition:border-color .15s,background .15s;
+  }
+  input:focus,select:focus{border-color:var(--teal);background:#fff}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .field{margin-bottom:14px}
+
+  /* Med chips */
+  .meds{display:flex;flex-wrap:wrap;gap:9px}
+  .medchip{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    border:1.5px solid var(--line);background:#F7FAFC;border-radius:999px;
+    padding:9px 14px;font-weight:700;font-size:14px;transition:.15s;
+  }
+  .medchip .swatch{width:11px;height:11px;border-radius:50%}
+  .medchip[data-on="1"]{background:#fff;border-color:currentColor;box-shadow:0 0 0 3px rgba(76,154,175,.10)}
+  .medchip.dolven{color:var(--dolven)} .medchip.calpol{color:var(--calpol)} .medchip.antibiotic{color:var(--antibiotic)} .medchip.other{color:var(--other)}
+  .medchip[data-on="0"]{color:var(--ink)}
+  .medchip[data-on="0"] .swatch{opacity:.45}
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border:none;border-radius:13px;padding:14px 16px;font-weight:800;font-size:15px;
+    cursor:pointer;width:100%;transition:transform .06s,filter .15s;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn-primary{background:var(--teal);color:#fff;box-shadow:0 6px 16px rgba(76,154,175,.30)}
+  .btn-primary:disabled{opacity:.5;box-shadow:none}
+  .btn-ghost{background:var(--teal-soft);color:var(--teal)}
+  .btn-line{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-danger-ghost{background:#FCEEEA;color:#C7573B}
+  .btn-sm{padding:9px 12px;font-size:13px;border-radius:10px;width:auto}
+
+  /* Chart */
+  .chart-wrap{position:relative;width:100%}
+  canvas{width:100%;display:block;border-radius:12px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+  .legend .k{width:14px;height:3px;border-radius:2px}
+  .legend .kd{width:10px;height:10px;border-radius:50%}
+
+  /* History */
+  .item{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:none}
+  .item .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:18px;flex:0 0 auto}
+  .item .tap{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;border-radius:10px;padding:2px}
+  .item .tap:active{background:#F3F8FA}
+  .item .ic.temp{background:#FCEDE8;color:var(--fever)}
+  .item .ic.med{background:var(--teal-soft);color:var(--teal)}
+  .item .main{flex:1;min-width:0}
+  .item .t1{font-weight:800;font-size:15px}
+  .item .t2{color:var(--muted);font-size:12.5px;margin-top:1px}
+  .item .del{background:none;border:none;color:#C9B7B2;font-size:20px;padding:6px 8px;cursor:pointer;flex:0 0 auto}
+  .item .del:active{color:#C7573B}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;color:#fff}
+
+  .empty{text-align:center;color:var(--muted);padding:26px 10px;font-size:14px}
+  .empty .big{font-size:30px;display:block;margin-bottom:8px;opacity:.7}
+
+  /* Orders */
+  .order{display:flex;align-items:center;gap:12px;padding:13px;border:1.5px solid var(--line);border-radius:14px;margin-bottom:10px;background:#fff}
+  .order.due{border-color:var(--warn);background:#FEF8EE}
+  .order.done{opacity:.5}
+  .order .when{font-weight:800;font-size:15px}
+  .order .what{color:var(--muted);font-size:13px;margin-top:2px}
+  .order .status{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+
+  .note{background:#F1F8F4;border:1px solid #D6EBDF;color:#3B6B54;border-radius:12px;padding:12px 13px;font-size:13px;line-height:1.5}
+  .note b{color:#2E5A44}
+
+  /* Bottom nav */
+  nav{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  nav button{
+    flex:1;background:none;border:none;cursor:pointer;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:6px 2px;border-radius:12px;
+  }
+  nav button .ni{font-size:21px;line-height:1}
+  nav button.active{color:var(--teal)}
+  nav button .badge{position:absolute;transform:translate(14px,-4px);background:var(--fever);color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:grid;place-items:center;padding:0 4px}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(30,45,55,.42);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-end;justify-content:center}
+  .overlay.open{display:flex}
+  .sheet{
+    background:var(--card);width:100%;max-width:560px;border-radius:22px 22px 0 0;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.15);
+    animation:up .28s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+  .sheet h3{margin:0 0 14px;font-size:18px;font-weight:800}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+  .plist{list-style:none;margin:0 0 8px;padding:0}
+  .plist li{display:flex;align-items:center;gap:11px;padding:12px 10px;border-radius:12px;cursor:pointer}
+  .plist li:active{background:var(--teal-soft)}
+  .plist li.sel{background:var(--teal-soft)}
+  .plist li .av{width:34px;height:34px;border-radius:999px;background:var(--teal-soft);color:var(--teal);display:grid;place-items:center;font-weight:800}
+  .plist li.sel .av{background:var(--teal);color:#fff}
+  .plist li .nm{font-weight:700;flex:1}
+  .plist li .rn{color:var(--muted);font-size:16px;padding:4px 8px}
+  .plist li .rm{color:#C9B7B2;font-size:18px;padding:4px 8px}
+
+  /* Alarm */
+  .alarm-ov{position:fixed;inset:0;z-index:200;background:rgba(232,131,107,.20);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:22px}
+  .alarm-ov.open{display:flex}
+  .alarm{
+    background:#fff;border-radius:24px;max-width:360px;width:100%;padding:26px 22px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);animation:pop .3s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  .alarm .big-ic{font-size:52px;animation:buzz 1s ease-in-out infinite}
+  @keyframes buzz{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+  .alarm h3{margin:12px 0 4px;font-size:22px}
+  .alarm p{margin:0 0 20px;color:var(--muted)}
+  .alarm .med-name{color:var(--teal);font-weight:800}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;
+    z-index:150;opacity:0;transition:.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2)
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div class="brand"><span class="dot">🦁</span> Ateş Takip</div>
+    <button class="patient-chip" id="patientChip" onclick="openPatients()">
+      <span class="av" id="chipAv">?</span>
+      <span class="who" id="chipName">Kişi seç</span>
+      <span class="caret">▾</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- TAKİP -->
+  <section class="view active" id="view-takip">
+    <div class="card">
+      <h2>Yeni kayıt</h2>
+      <p class="sub">Ateş ölçümünü ve/veya verdiğin ilacı gir.</p>
+
+      <div class="field">
+        <label class="f">Tarih ve saat</label>
+        <input type="datetime-local" id="entryTime">
+      </div>
+
+      <div class="field">
+        <label class="f">Ateş (°C) — boş bırakabilirsin</label>
+        <input type="number" id="entryTemp" inputmode="decimal" step="0.1" min="33" max="43" placeholder="örn. 38.4">
+      </div>
+
+      <div class="field">
+        <label class="f">İlaç verildiyse seç (birden fazla olabilir)</label>
+        <div class="meds" id="medChips">
+          <span class="medchip dolven" data-med="Dolven" data-on="0" onclick="toggleMed(this)"><span class="swatch" style="background:var(--dolven)"></span>Dolven</span>
+          <span class="medchip calpol" data-med="Calpol" data-on="0" onclick="toggleMed(this)"><span class="swatch" style="background:var(--calpol)"></span>Calpol</span>
+          <span class="medchip antibiotic" data-med="Antibiyotik" data-on="0" onclick="toggleMed(this)"><span class="swatch" style="background:var(--antibiotic)"></span>Antibiyotik</span>
+          <span class="medchip other" data-med="__other__" data-on="0" onclick="toggleMed(this)"><span class="swatch" style="background:var(--other)"></span>Diğer</span>
+        </div>
+        <input type="text" id="otherName" placeholder="Diğer ilacın adı" style="margin-top:10px;display:none">
+      </div>
+
+      <button class="btn btn-primary" onclick="saveEntry()">Kaydet</button>
+    </div>
+
+    <div class="card">
+      <h2>Ateş &amp; ilaç grafiği</h2>
+      <p class="sub">Ateş çizgisi, ilaçlar renkli işaretlerle aynı grafikte.</p>
+      <div class="chart-wrap">
+        <canvas id="chart" height="230"></canvas>
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span><span class="kd" style="background:#3FA46B"></span>&lt;37.2</span>
+        <span><span class="kd" style="background:#C79A12"></span>37.2–37.5</span>
+        <span><span class="kd" style="background:#E8822E"></span>37.5–38.5</span>
+        <span><span class="kd" style="background:#E23B2E"></span>&gt;38.5</span>
+        <span><span class="kd" style="background:#8E2A3F"></span>&gt;40</span>
+      </div>
+      <div class="legend" style="margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:var(--dolven)"></span>Dolven</span>
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:var(--calpol)"></span>Calpol</span>
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:var(--antibiotic)"></span>Antibiyotik</span>
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:var(--other)"></span>Diğer</span>
+      </div>
+      <div class="legend" style="margin-top:6px">
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:#7A8994"></span>Dolu ilaç = verildi</span>
+        <span><span style="display:inline-block;width:16px;height:9px;border-radius:5px;background:#fff;border:1.5px solid #7A8994;box-sizing:border-box"></span>⏰ Boş ilaç = planlı</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HATIRLATICI -->
+  <section class="view" id="view-order">
+    <div class="card">
+      <h2>Sonraki ilaç planı</h2>
+      <p class="sub">İlacın adını ve saatini gir; zamanı gelince telefonda uyarı çıkar.</p>
+
+      <div class="field">
+        <label class="f">İlaç</label>
+        <select id="orderMed">
+          <option>Dolven</option>
+          <option>Calpol</option>
+          <option>Antibiyotik</option>
+          <option value="__other__">Diğer…</option>
+        </select>
+        <input type="text" id="orderOther" placeholder="Diğer ilacın adı" style="margin-top:10px;display:none">
+      </div>
+
+      <div class="field">
+        <label class="f">Ne zaman</label>
+        <input type="datetime-local" id="orderTime">
+      </div>
+
+      <button class="btn btn-primary" onclick="saveOrder()">Hatırlatma ekle</button>
+
+      <button class="btn btn-ghost" id="permBtn" style="margin-top:10px;display:none" onclick="askPerm()">🔔 Bildirimlere izin ver</button>
+      <div class="note" id="notifNote" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Planlanan ilaçlar</h2>
+      <div id="orderList"></div>
+    </div>
+  </section>
+
+  <!-- GEÇMİŞ -->
+  <section class="view" id="view-history">
+    <div class="card">
+      <h2>Geçmiş kayıtlar</h2>
+      <p class="sub">En yeni üstte. Düzenlemek için kayda, silmek için 🗑’a dokun. 3 gün kayıt girilmezse takip otomatik arşivlenir; sonraki kayıtla yeni bir takip başlar.</p>
+      <div id="historyList"></div>
+    </div>
+    <div class="card">
+      <h2>Yedekle &amp; geri yükle</h2>
+      <p class="sub">Kayıtlar telefonunda saklanır. Uygulamayı güncellerken ya da başka cihaza taşırken kaybolmaması için yedek al.</p>
+      <button class="btn btn-line" onclick="openBackup()">💾 Yedek al / geri yükle</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="active" data-tab="takip" onclick="go('takip')"><span class="ni">📈</span>Takip</button>
+  <button data-tab="order" onclick="go('order')"><span class="ni" style="position:relative">⏰<span class="badge" id="orderBadge" style="display:none">0</span></span>Hatırlatıcı</button>
+  <button data-tab="history" onclick="go('history')"><span class="ni">📋</span>Geçmiş</button>
+</nav>
+
+<!-- Patient sheet -->
+<div class="overlay" id="patientOverlay" onclick="if(event.target===this)closeSheet('patientOverlay')">
+  <div class="sheet">
+    <div class="grab"></div>
+    <h3>Kim için kayıt tutuyorsun?</h3>
+    <ul class="plist" id="patientList"></ul>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="newPatientName" placeholder="Yeni kişi / hasta adı">
+      <button class="btn btn-primary btn-sm" style="flex:0 0 auto;padding:0 16px" onclick="addPatient()">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backup sheet -->
+<div class="overlay" id="backupOverlay" onclick="if(event.target===this)closeSheet('backupOverlay')">
+  <div class="sheet">
+    <div class="grab"></div>
+    <h3>Yedekle &amp; geri yükle</h3>
+
+    <div class="section-label">1 · Yedek al</div>
+    <p class="sub" style="margin-top:0">Metni kopyala ya da dosya indir; güvenli bir yere sakla (not, e-posta, bulut).</p>
+    <textarea id="backupText" readonly style="width:100%;height:84px;font-size:12px;font-family:ui-monospace,Menlo,monospace;border:1.5px solid var(--line);border-radius:12px;padding:10px;background:#F7FAFC;color:var(--ink)"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn btn-ghost" onclick="copyBackup()">Kopyala</button>
+      <button class="btn btn-line" onclick="downloadBackup()">Dosya indir</button>
+    </div>
+
+    <div class="section-label" style="margin-top:20px">2 · Geri yükle</div>
+    <p class="sub" style="margin-top:0">Yedek metnini yapıştır ya da dosya seç. Mevcut kayıtların korunur, eksik olanlar eklenir.</p>
+    <textarea id="restoreText" placeholder="Yedek metnini buraya yapıştır" style="width:100%;height:76px;font-size:12px;font-family:ui-monospace,Menlo,monospace;border:1.5px solid var(--line);border-radius:12px;padding:10px;background:#F7FAFC;color:var(--ink)"></textarea>
+    <input type="file" id="restoreFile" accept="application/json,.json,text/plain" style="margin-top:10px;font-size:13px" onchange="restoreFromFile(event)">
+    <button class="btn btn-primary" style="margin-top:12px" onclick="restoreFromText()">Geri yükle</button>
+  </div>
+</div>
+
+<!-- Edit entry sheet -->
+<div class="overlay" id="editOverlay" onclick="if(event.target===this)closeSheet('editOverlay')">
+  <div class="sheet">
+    <div class="grab"></div>
+    <h3 id="editTitle">Kaydı düzenle</h3>
+    <div class="field" id="editTempField">
+      <label class="f">Ateş (°C)</label>
+      <input type="number" id="editTemp" inputmode="decimal" step="0.1" min="33" max="43" placeholder="örn. 38.4">
+    </div>
+    <div class="field" id="editMedField">
+      <label class="f">İlaç</label>
+      <select id="editMed">
+        <option>Dolven</option>
+        <option>Calpol</option>
+        <option>Antibiyotik</option>
+        <option value="__other__">Diğer…</option>
+      </select>
+      <input type="text" id="editMedOther" placeholder="Diğer ilacın adı" style="margin-top:10px;display:none">
+    </div>
+    <div class="field">
+      <label class="f">Tarih ve saat</label>
+      <input type="datetime-local" id="editTime">
+    </div>
+    <button class="btn btn-primary" onclick="saveEdit()">Değişikliği kaydet</button>
+    <button class="btn btn-danger-ghost" style="margin-top:9px" onclick="deleteFromEdit()">Bu kaydı sil</button>
+  </div>
+</div>
+
+<!-- Alarm -->
+<div class="alarm-ov" id="alarmOverlay">
+  <div class="alarm">
+    <div class="big-ic">💊</div>
+    <h3 id="alarmTitle">İlaç zamanı</h3>
+    <p><span class="med-name" id="alarmMed">Dolven</span> ver — <span id="alarmWho">Aslan</span></p>
+    <button class="btn btn-primary" onclick="alarmDone()">Verildi ✓</button>
+    <button class="btn btn-line" style="margin-top:9px" onclick="alarmSnooze()">10 dk ertele</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const KEY="atestakip_v1";
+const MED_COLORS={Dolven:"#5E86D6",Calpol:"#C97BA6",Antibiyotik:"#8B6FCF"};
+const OTHER_COLOR="#5FB08A";
+const SESSION_GAP_MS=3*24*60*60*1000; // 3 gün kayıtsız kalırsa takip arşivlenir
+let db, current, currentAlarm=null;
+
+/* ---------- storage ---------- */
+function load(){
+  try{db=JSON.parse(localStorage.getItem(KEY))||null}catch(e){db=null}
+  if(!db)db={active:null,patients:{}};
+  migrateLegacy();
+}
+function migrateLegacy(){
+  Object.values(db.patients).forEach(p=>{
+    if(!p.sessions){
+      const events=p.events||[];const orders=p.orders||[];
+      p.sessions=sessionsFromLegacy(events,orders);
+      delete p.events;delete p.orders;
+    }
+  });
+}
+function sessionsFromLegacy(events,orders){
+  if(!events.length && !orders.length)return[];
+  const times=[...events.map(e=>e.time),...orders.map(o=>o.time)].sort();
+  return[{id:uid(),startedAt:times[0]||new Date().toISOString(),archived:false,events,orders}];
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast("Kaydedilemedi (tarayıcı depolaması kapalı)")}}
+function patient(){return db.patients[db.active]}
+
+/* ---------- sessions (bir takip dönemi) ---------- */
+function sessionLastActivity(s){
+  let max=s.startedAt;
+  s.events.forEach(e=>{if(e.time>max)max=e.time});
+  return max;
+}
+function isSessionExpired(s){
+  return (Date.now()-new Date(sessionLastActivity(s)).getTime())>SESSION_GAP_MS;
+}
+// Son oturumu döndürür; süresi dolmuşsa arşivler ve null döner. Yeni oturum OLUŞTURMAZ.
+function ensureActiveSession(p){
+  if(!p||!p.sessions.length)return null;
+  const s=p.sessions[p.sessions.length-1];
+  if(!s.archived && isSessionExpired(s)){s.archived=true;save()}
+  return s.archived?null:s;
+}
+// Yazma amaçlı: aktif oturum yoksa/arşivlenmişse yeni bir takip oturumu başlatır.
+function getWritableSession(p){
+  let s=ensureActiveSession(p);
+  if(!s){s={id:uid(),startedAt:new Date().toISOString(),archived:false,events:[],orders:[]};p.sessions.push(s)}
+  return s;
+}
+function currentSession(){return current?ensureActiveSession(patient()):null}
+
+/* ---------- utils ---------- */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function pad(n){return String(n).padStart(2,"0")}
+function nowLocalInput(d){d=d||new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes())}
+function fmtTime(iso){const d=new Date(iso);return pad(d.getHours())+":"+pad(d.getMinutes())}
+function fmtDay(iso){const d=new Date(iso);const t=new Date();const y=new Date(Date.now()-864e5);
+  if(d.toDateString()===t.toDateString())return "Bugün";
+  if(d.toDateString()===y.toDateString())return "Dün";
+  return pad(d.getDate())+"."+pad(d.getMonth()+1)+"."+d.getFullYear();
+}
+function medColor(name){return MED_COLORS[name]||OTHER_COLOR}
+function tempColor(v){
+  if(v>40)   return "#8E2A3F"; // bordo (>40)
+  if(v>38.5) return "#E23B2E"; // parlak kırmızı (>38.5)
+  if(v>=37.5)return "#E8822E"; // turuncu (37.5–38.5)
+  if(v>=37.2)return "#C79A12"; // sarı (37.2–37.5)
+  return "#3FA46B";            // yeşil (<37.2)
+}
+function tempLabel(v){
+  if(v>40)   return "Bordo";
+  if(v>38.5) return "Yüksek";
+  if(v>=37.5)return "Turuncu";
+  if(v>=37.2)return "Sarı";
+  return "Normal";
+}
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200)}
+
+/* ---------- patients ---------- */
+function openPatients(){renderPatientList();openSheet("patientOverlay")}
+function openSheet(id){document.getElementById(id).classList.add("open")}
+function closeSheet(id){document.getElementById(id).classList.remove("open")}
+function renderPatientList(){
+  const ul=document.getElementById("patientList");ul.innerHTML="";
+  const names=Object.keys(db.patients);
+  if(!names.length){ul.innerHTML='<li style="cursor:default;color:var(--muted)">Henüz kişi yok. Aşağıdan ekle 👇</li>';return}
+  names.forEach(n=>{
+    const li=document.createElement("li");if(n===db.active)li.className="sel";
+    li.innerHTML=`<span class="av">${n.trim().charAt(0).toUpperCase()}</span><span class="nm">${esc(n)}</span><span class="rn" title="Düzenle">✏️</span><span class="rm" title="Sil">🗑</span>`;
+    li.querySelector(".nm").onclick=()=>{db.active=n;save();refreshAll();closeSheet("patientOverlay")};
+    li.querySelector(".av").onclick=()=>{db.active=n;save();refreshAll();closeSheet("patientOverlay")};
+    li.querySelector(".rn").onclick=(e)=>{e.stopPropagation();renamePatient(n)};
+    li.querySelector(".rm").onclick=(e)=>{e.stopPropagation();removePatient(n)};
+    ul.appendChild(li);
+  });
+}
+function addPatient(){
+  const inp=document.getElementById("newPatientName");const name=inp.value.trim();
+  if(!name){inp.focus();return}
+  if(db.patients[name]){toast("Bu isim zaten var");db.active=name;save();refreshAll();closeSheet("patientOverlay");return}
+  db.patients[name]={sessions:[]};db.active=name;save();inp.value="";refreshAll();closeSheet("patientOverlay");
+  toast(name+" eklendi");
+}
+function renamePatient(oldName){
+  const p=db.patients[oldName];if(!p)return;
+  const input=prompt("Yeni isim:",oldName);
+  if(input===null)return;
+  const name=input.trim();
+  if(!name||name===oldName)return;
+  if(db.patients[name]){toast("Bu isim zaten var");return}
+  delete db.patients[oldName];
+  db.patients[name]=p;
+  if(db.active===oldName)db.active=name;
+  save();renderPatientList();refreshAll();
+  toast("İsim güncellendi ✓");
+}
+function removePatient(n){
+  if(!confirm(`"${n}" ve tüm kayıtları silinsin mi?`))return;
+  delete db.patients[n];
+  if(db.active===n)db.active=Object.keys(db.patients)[0]||null;
+  save();refreshAll();renderPatientList();
+}
+
+/* ---------- entries ---------- */
+let selectedMeds=new Set();
+function toggleMed(el){
+  const on=el.getAttribute("data-on")==="1";el.setAttribute("data-on",on?"0":"1");
+  const med=el.getAttribute("data-med");
+  if(med==="__other__")document.getElementById("otherName").style.display=on?"none":"block";
+  if(on)selectedMeds.delete(med);else selectedMeds.add(med);
+}
+function saveEntry(){
+  if(!requirePatient())return;
+  const timeVal=document.getElementById("entryTime").value;
+  const tempVal=document.getElementById("entryTemp").value.trim().replace(",",".");
+  const iso=timeVal?new Date(timeVal).toISOString():new Date().toISOString();
+  const meds=[];
+  selectedMeds.forEach(m=>{
+    if(m==="__other__"){const o=document.getElementById("otherName").value.trim();if(o)meds.push(o)}
+    else meds.push(m);
+  });
+  if(!tempVal && !meds.length){toast("Ateş ya da ilaç gir");return}
+  let t=null;
+  if(tempVal){
+    t=parseFloat(tempVal);
+    if(isNaN(t)||t<33||t>44){toast("Ateş değeri geçersiz");return}
+  }
+  const s=getWritableSession(patient());
+  if(t!==null)s.events.push({id:uid(),type:"temp",time:iso,temp:t});
+  meds.forEach(name=>s.events.push({id:uid(),type:"med",time:iso,med:name}));
+  save();
+  // reset
+  document.getElementById("entryTemp").value="";
+  document.getElementById("otherName").value="";document.getElementById("otherName").style.display="none";
+  selectedMeds.clear();
+  document.querySelectorAll("#medChips .medchip").forEach(c=>c.setAttribute("data-on","0"));
+  document.getElementById("entryTime").value=nowLocalInput();
+  refreshAll();
+  toast("Kaydedildi ✓");
+}
+function findEventContext(id){
+  const p=patient();if(!p)return null;
+  for(const s of p.sessions){const e=s.events.find(x=>x.id===id);if(e)return{session:s,event:e}}
+  return null;
+}
+function delEvent(id){
+  const ctx=findEventContext(id);if(!ctx)return;
+  ctx.session.events=ctx.session.events.filter(e=>e.id!==id);
+  save();refreshAll();
+}
+
+let editingId=null;
+document.getElementById("editMed").addEventListener("change",function(){
+  document.getElementById("editMedOther").style.display=this.value==="__other__"?"block":"none";
+});
+function openEdit(id){
+  const ctx=findEventContext(id);if(!ctx)return;
+  const e=ctx.event;
+  editingId=id;
+  const isTemp=e.type==="temp";
+  document.getElementById("editTitle").textContent=isTemp?"Ateş kaydını düzenle":"İlaç kaydını düzenle";
+  document.getElementById("editTempField").style.display=isTemp?"block":"none";
+  document.getElementById("editMedField").style.display=isTemp?"none":"block";
+  if(isTemp){
+    document.getElementById("editTemp").value=e.temp;
+  }else{
+    const sel=document.getElementById("editMed"),other=document.getElementById("editMedOther");
+    if(e.med==="Dolven"||e.med==="Calpol"){sel.value=e.med;other.style.display="none";other.value=""}
+    else{sel.value="__other__";other.style.display="block";other.value=e.med}
+  }
+  document.getElementById("editTime").value=nowLocalInput(new Date(e.time));
+  openSheet("editOverlay");
+}
+function saveEdit(){
+  const ctx=findEventContext(editingId);if(!ctx){closeSheet("editOverlay");return}
+  const e=ctx.event;
+  const tv=document.getElementById("editTime").value;
+  if(!tv){toast("Saat seç");return}
+  if(e.type==="temp"){
+    const raw=document.getElementById("editTemp").value.trim().replace(",",".");
+    const t=parseFloat(raw);
+    if(isNaN(t)||t<33||t>44){toast("Ateş değeri geçersiz");return}
+    e.temp=t;
+  }else{
+    const sel=document.getElementById("editMed");let med=sel.value;
+    if(med==="__other__"){med=document.getElementById("editMedOther").value.trim();if(!med){toast("İlaç adını yaz");return}}
+    e.med=med;
+  }
+  e.time=new Date(tv).toISOString();
+  save();closeSheet("editOverlay");refreshAll();toast("Güncellendi ✓");
+}
+function deleteFromEdit(){
+  if(!editingId)return;
+  if(!confirm("Bu kayıt silinsin mi?"))return;
+  delEvent(editingId);editingId=null;closeSheet("editOverlay");toast("Silindi");
+}
+
+/* ---------- history ---------- */
+function renderHistory(){
+  const box=document.getElementById("historyList");
+  if(!current){box.innerHTML=emptyState("Önce bir kişi seç");return}
+  const p=patient();
+  ensureActiveSession(p); // son oturumun arşiv durumunu güncelle
+  if(!p.sessions.length){box.innerHTML=emptyState("Henüz kayıt yok","Yukarıdaki Takip sekmesinden ilk ölçümü ekle.");return}
+  const sessions=[...p.sessions].sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
+  box.innerHTML="";
+  sessions.forEach((s,idx)=>{
+    const head=document.createElement("div");
+    head.style.cssText="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:6px;margin:"+(idx===0?"2px":"20px")+" 0 8px";
+    if(s.archived){
+      head.style.color="var(--muted)";
+      head.textContent="🗂 Arşiv · "+fmtDay(s.startedAt)+" – "+fmtDay(sessionLastActivity(s));
+    }else{
+      head.style.color="var(--teal)";
+      head.textContent="● Güncel takip";
+    }
+    box.appendChild(head);
+    if(!s.events.length){
+      const e=document.createElement("div");e.className="empty";e.style.padding="10px 6px";e.textContent="Bu dönemde kayıt yok";
+      box.appendChild(e);return;
+    }
+    const evs=[...s.events].sort((a,b)=>new Date(b.time)-new Date(a.time));
+    let lastDay="";
+    evs.forEach(e=>{
+      const day=fmtDay(e.time);
+      if(day!==lastDay){lastDay=day;const h=document.createElement("div");h.className="section-label";h.style.margin="14px 0 6px";h.textContent=day;box.appendChild(h)}
+      const el=document.createElement("div");el.className="item";
+      let inner="";
+      if(e.type==="temp"){
+        const tc=tempColor(e.temp);
+        inner=`<div class="ic temp" style="background:${hexA(tc,.14)};color:${tc}">🌡️</div><div class="main"><div class="t1 tabnum" style="color:${tc}">${e.temp.toFixed(1)}°C</div><div class="t2 tabnum">${fmtTime(e.time)} · <span style="color:${tc};font-weight:700">${tempLabel(e.temp)}</span></div></div>`;
+      }else{
+        const c=medColor(e.med);
+        inner=`<div class="ic med">💊</div><div class="main"><div class="t1"><span class="pill" style="background:${c}">${esc(e.med)}</span></div><div class="t2 tabnum">${fmtTime(e.time)}</div></div>`;
+      }
+      const tap=document.createElement("div");tap.className="tap";tap.innerHTML=inner;tap.onclick=()=>openEdit(e.id);
+      el.appendChild(tap);
+      const edit=document.createElement("button");edit.className="del";edit.innerHTML="✏️";edit.title="Düzenle";edit.onclick=(ev)=>{ev.stopPropagation();openEdit(e.id)};
+      const del=document.createElement("button");del.className="del";del.innerHTML="🗑";del.title="Sil";del.onclick=(ev)=>{ev.stopPropagation();if(confirm("Bu kayıt silinsin mi?"))delEvent(e.id)};
+      el.appendChild(edit);el.appendChild(del);box.appendChild(el);
+    });
+  });
+}
+
+/* ---------- orders / reminders ---------- */
+document.getElementById("orderMed").addEventListener("change",function(){
+  document.getElementById("orderOther").style.display=this.value==="__other__"?"block":"none";
+});
+function saveOrder(){
+  if(!requirePatient())return;
+  const sel=document.getElementById("orderMed");
+  let med=sel.value;
+  if(med==="__other__"){med=document.getElementById("orderOther").value.trim();if(!med){toast("İlaç adını yaz");return}}
+  const tv=document.getElementById("orderTime").value;
+  if(!tv){toast("Saat seç");return}
+  const iso=new Date(tv).toISOString();
+  const s=getWritableSession(patient());
+  s.orders.push({id:uid(),med,time:iso,done:false,fired:false});
+  save();
+  document.getElementById("orderOther").value="";document.getElementById("orderOther").style.display="none";sel.value="Dolven";
+  document.getElementById("orderTime").value=nowLocalInput(new Date(Date.now()+4*3600e3));
+  refreshAll();toast("Hatırlatma eklendi ⏰");
+}
+function findOrderContext(p,id){
+  if(!p)return null;
+  for(const s of p.sessions){const o=s.orders.find(x=>x.id===id);if(o)return{session:s,order:o}}
+  return null;
+}
+function delOrder(id){
+  const p=patient();const ctx=findOrderContext(p,id);if(!ctx)return;
+  ctx.session.orders=ctx.session.orders.filter(o=>o.id!==id);
+  save();refreshAll();
+}
+function markOrderDone(id,logIt){
+  const p=patient();const ctx=findOrderContext(p,id);if(!ctx)return;
+  ctx.order.done=true;ctx.order.fired=true;
+  if(logIt)ctx.session.events.push({id:uid(),type:"med",time:new Date().toISOString(),med:ctx.order.med});
+  save();refreshAll();
+}
+function renderOrders(){
+  const box=document.getElementById("orderList");
+  if(!current){box.innerHTML=emptyState("Önce bir kişi seç");updateBadge();return}
+  const s=currentSession();
+  const orders=s?[...s.orders].sort((a,b)=>new Date(a.time)-new Date(b.time)):[];
+  if(!orders.length){box.innerHTML=emptyState("Plan yok","Yaklaşan ilaç için hatırlatma ekle.");updateBadge();return}
+  box.innerHTML="";const now=Date.now();
+  orders.forEach(o=>{
+    const due=!o.done && new Date(o.time).getTime()<=now;
+    const el=document.createElement("div");el.className="order"+(o.done?" done":(due?" due":""));
+    const status=o.done?"Verildi":(due?"Şimdi!":"Bekliyor");
+    el.innerHTML=`
+      <div style="width:6px;height:38px;border-radius:3px;background:${medColor(o.med)};flex:0 0 auto"></div>
+      <div style="flex:1;min-width:0">
+        <div class="when tabnum">${fmtDay(o.time)}, ${fmtTime(o.time)}</div>
+        <div class="what"><b>${esc(o.med)}</b> ver</div>
+      </div>
+      <div style="text-align:right">
+        <div class="status">${status}</div>
+      </div>`;
+    const acts=document.createElement("div");acts.style.cssText="display:flex;gap:6px;margin-left:6px";
+    if(!o.done){
+      const done=document.createElement("button");done.className="btn btn-sm btn-ghost";done.textContent="✓";done.title="Verildi";
+      done.onclick=()=>markOrderDone(o.id,true);
+      acts.appendChild(done);
+    }
+    const rm=document.createElement("button");rm.className="btn btn-sm btn-line";rm.textContent="🗑";
+    rm.onclick=()=>{if(confirm("Hatırlatma silinsin mi?"))delOrder(o.id)};
+    acts.appendChild(rm);
+    el.appendChild(acts);box.appendChild(el);
+  });
+  updateBadge();
+}
+function updateBadge(){
+  let n=0;const now=Date.now();
+  Object.values(db.patients).forEach(p=>{
+    const s=ensureActiveSession(p);if(!s)return;
+    s.orders.forEach(o=>{if(!o.done && new Date(o.time).getTime()<=now)n++});
+  });
+  const b=document.getElementById("orderBadge");
+  if(n>0){b.textContent=n;b.style.display="grid"}else b.style.display="none";
+}
+
+/* ---------- alarm loop ---------- */
+function checkAlarms(){
+  if(currentAlarm)return; // one at a time
+  const now=Date.now();
+  for(const [name,p] of Object.entries(db.patients)){
+    const s=ensureActiveSession(p);if(!s)continue;
+    for(const o of s.orders){
+      if(!o.done && !o.fired && new Date(o.time).getTime()<=now){
+        o.fired=true;save();fireAlarm(name,o);return;
+      }
+    }
+  }
+}
+function fireAlarm(who,order){
+  currentAlarm={who,orderId:order.id};
+  document.getElementById("alarmMed").textContent=order.med;
+  document.getElementById("alarmWho").textContent=who;
+  document.getElementById("alarmOverlay").classList.add("open");
+  beep();try{navigator.vibrate&&navigator.vibrate([300,150,300,150,300])}catch(e){}
+  if("Notification"in window && Notification.permission==="granted"){
+    try{new Notification("💊 İlaç zamanı — "+who,{body:order.med+" ver",tag:order.id,requireInteraction:true})}catch(e){}
+  }
+}
+function alarmDone(){
+  if(!currentAlarm)return;
+  const p=db.patients[currentAlarm.who];const ctx=findOrderContext(p,currentAlarm.orderId);
+  if(ctx){ctx.order.done=true;ctx.session.events.push({id:uid(),type:"med",time:new Date().toISOString(),med:ctx.order.med})}
+  save();closeAlarm();refreshAll();toast("Verildi olarak işaretlendi ✓");
+}
+function alarmSnooze(){
+  if(!currentAlarm)return;
+  const p=db.patients[currentAlarm.who];const ctx=findOrderContext(p,currentAlarm.orderId);
+  if(ctx){ctx.order.time=new Date(Date.now()+10*60000).toISOString();ctx.order.fired=false}
+  save();closeAlarm();refreshAll();toast("10 dakika ertelendi");
+}
+function closeAlarm(){document.getElementById("alarmOverlay").classList.remove("open");currentAlarm=null}
+function beep(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    const ctx=new AC();let t=ctx.currentTime;
+    for(let i=0;i<3;i++){
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="sine";o.frequency.value=880;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.25,t+.03);g.gain.linearRampToValueAtTime(0,t+.32);
+      o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+.34);t+=.42;
+    }
+  }catch(e){}
+}
+
+/* ---------- notifications permission ---------- */
+function refreshNotifState(){
+  const btn=document.getElementById("permBtn");const note=document.getElementById("notifNote");
+  if(!("Notification"in window)){
+    btn.style.display="none";
+    note.innerHTML="Bu tarayıcı sistem bildirimi desteklemiyor. Uygulama <b>açıkken</b> yine de ekranda uyarı ve ses çıkar.";
+    return;
+  }
+  if(Notification.permission==="granted"){
+    btn.style.display="none";
+    note.innerHTML="✅ Bildirim izni verildi. En güvenlisi: uygulama telefonda açık dursun. Ana ekrana eklersen daha uygulama gibi çalışır.";
+  }else if(Notification.permission==="denied"){
+    btn.style.display="none";
+    note.innerHTML="🔕 Bildirim engelli. Uygulama <b>açıkken</b> yine ekranda uyarı + ses gelir. İzni tarayıcı ayarlarından açabilirsin.";
+  }else{
+    btn.style.display="flex";
+    note.innerHTML="İpucu: Uyarıların gelmesi için bu sekme açık kalmalı. Sayfayı <b>ana ekrana ekle</b>, telefon kilitliyken de titreşim/ses için açık tut.";
+  }
+}
+function askPerm(){
+  if(!("Notification"in window))return;
+  Notification.requestPermission().then(()=>{refreshNotifState();beep();toast("Ayar güncellendi")});
+}
+
+/* ---------- chart ---------- */
+function drawChart(){
+  const cv=document.getElementById("chart");const wrap=cv.parentElement;
+  const cssW=wrap.clientWidth, cssH=230;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=cssW*dpr;cv.height=cssH*dpr;cv.style.height=cssH+"px";
+  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const s=current?currentSession():null;
+  const evs=s?s.events:[];
+  const temps=evs.filter(e=>e.type==="temp").map(e=>({t:new Date(e.time).getTime(),v:e.temp})).sort((a,b)=>a.t-b.t);
+  const meds=evs.filter(e=>e.type==="med").map(e=>({t:new Date(e.time).getTime(),name:e.med})).sort((a,b)=>a.t-b.t);
+  const plans=s?s.orders.filter(o=>!o.done).map(o=>({t:new Date(o.time).getTime(),name:o.med})).sort((a,b)=>a.t-b.t):[];
+
+  const padL=38,padR=14,padT=34,padB=34;
+  const W=cssW-padL-padR, H=cssH-padT-padB;
+
+  if(!temps.length && !meds.length && !plans.length){
+    ctx.fillStyle="#9FB0BA";ctx.font="14px system-ui";ctx.textAlign="center";
+    ctx.fillText("Henüz veri yok — ilk ölçümü ekle 🌡️",cssW/2,cssH/2);
+    return;
+  }
+
+  // time range
+  const allT=[...temps.map(x=>x.t),...meds.map(x=>x.t),...plans.map(x=>x.t)];
+  let tMin=Math.min(...allT), tMax=Math.max(...allT);
+  if(tMin===tMax){tMin-=30*60000;tMax+=30*60000}
+  const tPad=(tMax-tMin)*0.06;tMin-=tPad;tMax+=tPad;
+  // temp range
+  let vMin=36,vMax=39.5;
+  if(temps.length){
+    const vs=temps.map(x=>x.v);
+    vMin=Math.min(36,Math.floor(Math.min(...vs)*2)/2-0.5);
+    vMax=Math.max(39.5,Math.ceil(Math.max(...vs)*2)/2+0.5);
+  }
+  const X=t=>padL+(t-tMin)/(tMax-tMin)*W;
+  const Y=v=>padT+(1-(v-vMin)/(vMax-vMin))*H;
+
+  // horizontal grid + y labels (temp)
+  ctx.font="11px system-ui";ctx.textAlign="right";ctx.textBaseline="middle";
+  const step=(vMax-vMin)<=4?0.5:1;
+  for(let v=vMin;v<=vMax+0.001;v+=step){
+    const y=Y(v);
+    ctx.strokeStyle= (Math.abs(v-38)<0.01)?"#F3C9BF":"#EDF3F6";
+    ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(cssW-padR,y);ctx.stroke();
+    ctx.fillStyle="#9FB0BA";ctx.fillText(v.toFixed(step<1?1:0),padL-6,y);
+  }
+  // 38° reference note
+  ctx.fillStyle="#E8836B";ctx.textAlign="left";ctx.font="10px system-ui";
+
+  // x labels (time)
+  ctx.textAlign="center";ctx.textBaseline="top";ctx.fillStyle="#9FB0BA";ctx.font="11px system-ui";
+  const spanH=(tMax-tMin)/3600000;
+  const ticks=4;
+  let lastDayLabel="";
+  for(let i=0;i<=ticks;i++){
+    const t=tMin+(tMax-tMin)*i/ticks;const x=X(t);const d=new Date(t);
+    ctx.strokeStyle="#F2F6F8";ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,padT+H);ctx.stroke();
+    ctx.fillStyle="#9FB0BA";ctx.fillText(pad(d.getHours())+":"+pad(d.getMinutes()),x,padT+H+6);
+    if(spanH>20){const dl=pad(d.getDate())+"."+pad(d.getMonth()+1);if(dl!==lastDayLabel){lastDayLabel=dl;ctx.fillText(dl,x,padT+H+19)}}
+  }
+
+  // pill/tablet shape helper (rounded capsule)
+  function pill(cx,cy,w,h){const r=h/2;ctx.beginPath();
+    ctx.moveTo(cx-w/2+r,cy-h/2);ctx.lineTo(cx+w/2-r,cy-h/2);
+    ctx.arc(cx+w/2-r,cy,r,-Math.PI/2,Math.PI/2);
+    ctx.lineTo(cx-w/2+r,cy+h/2);ctx.arc(cx-w/2+r,cy,r,Math.PI/2,Math.PI*1.5);ctx.closePath();}
+
+  // GIVEN medications: filled tablet = verildi
+  meds.forEach((m)=>{
+    const x=X(m.t);const c=medColor(m.name);
+    ctx.strokeStyle=c;ctx.globalAlpha=.35;ctx.lineWidth=2;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,padT+H);ctx.stroke();
+    ctx.setLineDash([]);ctx.globalAlpha=1;
+    pill(x,padT-8,17,9);ctx.fillStyle=c;ctx.fill();
+    // score line (tablet look)
+    ctx.strokeStyle="rgba(255,255,255,.75)";ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x,padT-11.5);ctx.lineTo(x,padT-4.5);ctx.stroke();
+  });
+
+  // PLANNED reminders (not given yet): outlined tablet + alarm icon = verilmedi, verilecek
+  plans.forEach((m)=>{
+    const x=X(m.t);const c=medColor(m.name);
+    ctx.strokeStyle=c;ctx.globalAlpha=.5;ctx.lineWidth=1.5;ctx.setLineDash([2,4]);
+    ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,padT+H);ctx.stroke();
+    ctx.setLineDash([]);ctx.globalAlpha=1;
+    pill(x,padT-8,17,9);ctx.fillStyle="#fff";ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=2;ctx.stroke();
+    ctx.strokeStyle=c;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x,padT-11.5);ctx.lineTo(x,padT-4.5);ctx.stroke();
+    ctx.font="12px system-ui";ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillStyle=c;
+    ctx.fillText("⏰",x,padT-16);
+  });
+
+  // temperature line
+  if(temps.length){
+    ctx.strokeStyle="#E8836B";ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
+    ctx.beginPath();temps.forEach((p,i)=>{const x=X(p.t),y=Y(p.v);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+    // area
+    const grad=ctx.createLinearGradient(0,padT,0,padT+H);
+    grad.addColorStop(0,"rgba(232,131,107,.16)");grad.addColorStop(1,"rgba(232,131,107,0)");
+    ctx.fillStyle=grad;ctx.beginPath();
+    temps.forEach((p,i)=>{const x=X(p.t),y=Y(p.v);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+    ctx.lineTo(X(temps[temps.length-1].t),padT+H);ctx.lineTo(X(temps[0].t),padT+H);ctx.closePath();ctx.fill();
+    // points + value labels
+    ctx.font="700 11px system-ui";ctx.textAlign="center";ctx.textBaseline="bottom";
+    temps.forEach(p=>{
+      const x=X(p.t),y=Y(p.v);const c=tempColor(p.v);
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(x,y,5.5,0,7);ctx.fill();
+      ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,4,0,7);ctx.fill();
+      ctx.fillStyle=c;ctx.fillText(p.v.toFixed(1),x,y-8);
+    });
+  }
+}
+
+/* ---------- helpers ---------- */
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function emptyState(title,sub){return `<div class="empty"><span class="big">🍃</span><div style="font-weight:800;color:#5C6B75">${title}</div>${sub?`<div style="margin-top:4px">${sub}</div>`:""}</div>`}
+function requirePatient(){if(!current){toast("Önce bir kişi ekle/seç");openPatients();return false}return true}
+
+/* ---------- backup / restore ---------- */
+function openBackup(){document.getElementById("backupText").value=JSON.stringify(db);document.getElementById("restoreText").value="";openSheet("backupOverlay")}
+function copyBackup(){
+  const t=document.getElementById("backupText");t.focus();t.select();t.setSelectionRange(0,999999);
+  const ok=()=>toast("Kopyalandı ✓");
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t.value).then(ok).catch(()=>{try{document.execCommand("copy");ok()}catch(e){toast("Kopyalanamadı, elle seç")}})}
+  else{try{document.execCommand("copy");ok()}catch(e){toast("Kopyalanamadı, elle seç")}}
+}
+function downloadBackup(){
+  try{
+    const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download="atestakip-yedek-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast("İndiriliyor…");
+  }catch(e){toast("İndirilemedi — metni kopyala")}
+}
+function mergeImport(obj){
+  if(!obj||typeof obj!=="object"||!obj.patients||typeof obj.patients!=="object"){toast("Geçersiz yedek");return false}
+  for(const [name,rawP] of Object.entries(obj.patients)){
+    if(!db.patients[name])db.patients[name]={sessions:[]};
+    const cur=db.patients[name];
+    const incoming=rawP.sessions||sessionsFromLegacy(rawP.events||[],rawP.orders||[]);
+    incoming.forEach(is=>{
+      let target=cur.sessions.find(s=>s.id===is.id);
+      if(!target){
+        target={id:is.id||uid(),startedAt:is.startedAt||new Date().toISOString(),archived:!!is.archived,events:[],orders:[]};
+        cur.sessions.push(target);
+      }
+      const eids=new Set(target.events.map(e=>e.id));
+      (is.events||[]).forEach(e=>{if(e&&e.id&&!eids.has(e.id)){target.events.push(e);eids.add(e.id)}});
+      const oids=new Set(target.orders.map(o=>o.id));
+      (is.orders||[]).forEach(o=>{if(o&&o.id&&!oids.has(o.id)){target.orders.push(o);oids.add(o.id)}});
+    });
+    cur.sessions.sort((a,b)=>new Date(a.startedAt)-new Date(b.startedAt));
+  }
+  if(!db.active)db.active=obj.active||Object.keys(db.patients)[0]||null;
+  save();refreshAll();return true;
+}
+function restoreFromText(){
+  const raw=document.getElementById("restoreText").value.trim();
+  if(!raw){toast("Önce yedek metnini yapıştır");return}
+  let obj;try{obj=JSON.parse(raw)}catch(e){toast("Metin geçerli bir yedek değil");return}
+  if(mergeImport(obj)){closeSheet("backupOverlay");toast("Geri yüklendi ✓")}
+}
+function restoreFromFile(ev){
+  const f=ev.target.files&&ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const obj=JSON.parse(r.result);if(mergeImport(obj)){closeSheet("backupOverlay");toast("Geri yüklendi ✓")}}catch(e){toast("Dosya okunamadı")}ev.target.value=""};
+  r.readAsText(f);
+}
+
+/* ---------- nav ---------- */
+function go(tab){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("view-"+tab).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+  if(tab==="takip")requestAnimationFrame(drawChart);
+}
+
+/* ---------- refresh ---------- */
+function refreshAll(){
+  current=db.active&&db.patients[db.active]?db.active:null;
+  const chip=document.getElementById("chipName");const av=document.getElementById("chipAv");
+  if(current){chip.textContent=db.active;av.textContent=db.active.trim().charAt(0).toUpperCase()}
+  else{chip.textContent="Kişi seç";av.textContent="?"}
+  renderHistory();renderOrders();drawChart();
+}
+
+/* ---------- init ---------- */
+function init(){
+  load();
+  document.getElementById("entryTime").value=nowLocalInput();
+  document.getElementById("orderTime").value=nowLocalInput(new Date(Date.now()+4*3600e3));
+  refreshNotifState();
+  current=db.active&&db.patients[db.active]?db.active:null;
+  refreshAll();
+  if(!current) setTimeout(openPatients,350); // first run: ask for a name
+  setInterval(checkAlarms,15000);
+  setInterval(updateBadge,30000);
+  checkAlarms();
+}
+window.addEventListener("resize",()=>{if(document.getElementById("view-takip").classList.contains("active"))drawChart()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkAlarms();updateBadge()}});
+init();
+</script>
+</body>
+</html>
