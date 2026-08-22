@@ -867,68 +867,77 @@ function askPerm(){
   Notification.requestPermission().then(()=>{refreshNotifState();beep();toast("Ayar güncellendi")});
 }
 
-/* ---------- chart zoom & pan (pinch ile büyüt/küçült, sürükle) ---------- */
-let chartZoom=1,chartPanX=0,chartPanY=0,chartGesture=null,chartLastTap=0;
-function applyChartTransform(){
-  const cv=document.getElementById("chart");
-  cv.style.transformOrigin="0 0";
-  cv.style.transform=`translate(${chartPanX}px,${chartPanY}px) scale(${chartZoom})`;
+/* ---------- chart zoom & pan (zaman eksenini daralt/genişlet — görsel öğeler sabit boyutta kalır) ---------- */
+const CHART_MAX_ZOOM=8; // en fazla ne kadar yakınlaşılabilir (tam aralığın 1/8'i)
+let chartViewMin=null,chartViewMax=null; // null = tam (yakınlaştırılmamış) görünüm
+let chartFullMin=0,chartFullMax=1; // en son çizimdeki tam veri aralığı
+let chartGeom={padL:38,padR:14,W:0,cssW:0,tMin:0,tMax:1}; // en son çizimin piksel/zaman geometrisi
+let chartGesture=null,chartLastTap=0;
+function resetChartZoom(){chartViewMin=null;chartViewMax=null;drawChart()}
+function chartPixelToTime(px){
+  const g=chartGeom;if(!g.W)return g.tMin;
+  return g.tMin+(px-g.padL)/g.W*(g.tMax-g.tMin);
 }
-function clampChartPan(){
-  const wrap=document.getElementById("chart").parentElement;
-  const w=wrap.clientWidth,h=230;
-  const minX=Math.min(0,w-w*chartZoom),minY=Math.min(0,h-h*chartZoom);
-  chartPanX=Math.min(0,Math.max(minX,chartPanX));
-  chartPanY=Math.min(0,Math.max(minY,chartPanY));
+function chartIsZoomed(){return(chartGeom.tMax-chartGeom.tMin)<(chartFullMax-chartFullMin)*0.995}
+function chartApplyView(min,max){
+  const fullSpan=chartFullMax-chartFullMin;
+  if(max-min<fullSpan){
+    if(min<chartFullMin){max+=(chartFullMin-min);min=chartFullMin}
+    if(max>chartFullMax){min-=(max-chartFullMax);max=chartFullMax}
+    min=Math.max(min,chartFullMin);
+  }
+  chartViewMin=min;chartViewMax=max;
+  drawChart();
 }
-function resetChartZoom(){chartZoom=1;chartPanX=0;chartPanY=0;applyChartTransform()}
 function chartTouchStart(ev){
+  if(!chartGeom.W){chartGesture=null;return}
   const rect=ev.currentTarget.parentElement.getBoundingClientRect();
   if(ev.touches.length===2){
     const[t0,t1]=ev.touches;
-    const dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
-    const midX=(t0.clientX+t1.clientX)/2-rect.left,midY=(t0.clientY+t1.clientY)/2-rect.top;
-    chartGesture={type:"pinch",startDist:dist,startZoom:chartZoom,startPan:{x:chartPanX,y:chartPanY},startMid:{x:midX,y:midY}};
-  }else if(ev.touches.length===1 && chartZoom>1.001){
+    const dx=Math.abs(t1.clientX-t0.clientX)||1;
+    const midXpx=(t0.clientX+t1.clientX)/2-rect.left;
+    chartGesture={type:"pinch",startDX:dx,startSpan:chartGeom.tMax-chartGeom.tMin,anchorTime:chartPixelToTime(midXpx)};
+  }else if(ev.touches.length===1 && chartIsZoomed()){
     const t=ev.touches[0];
-    chartGesture={type:"pan",startX:t.clientX,startY:t.clientY,startPan:{x:chartPanX,y:chartPanY}};
+    chartGesture={type:"pan",startX:t.clientX,startMin:chartGeom.tMin,startMax:chartGeom.tMax};
   }else{
     chartGesture=null;
   }
 }
 function chartTouchMove(ev){
-  if(!chartGesture)return;
+  if(!chartGesture||!chartGeom.W)return;
   ev.preventDefault();
   const rect=ev.currentTarget.parentElement.getBoundingClientRect();
   if(chartGesture.type==="pinch" && ev.touches.length===2){
     const[t0,t1]=ev.touches;
-    const dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
-    const midX=(t0.clientX+t1.clientX)/2-rect.left,midY=(t0.clientY+t1.clientY)/2-rect.top;
-    const scale=Math.min(4,Math.max(1,chartGesture.startZoom*(dist/chartGesture.startDist)));
-    const anchorX=(chartGesture.startMid.x-chartGesture.startPan.x)/chartGesture.startZoom;
-    const anchorY=(chartGesture.startMid.y-chartGesture.startPan.y)/chartGesture.startZoom;
-    chartZoom=scale;chartPanX=midX-anchorX*scale;chartPanY=midY-anchorY*scale;
-    clampChartPan();applyChartTransform();
+    const dx=Math.abs(t1.clientX-t0.clientX)||1;
+    const midXpx=(t0.clientX+t1.clientX)/2-rect.left;
+    const fullSpan=chartFullMax-chartFullMin;
+    const minSpan=Math.max(fullSpan/CHART_MAX_ZOOM,20*60000);
+    let newSpan=chartGesture.startSpan/(dx/chartGesture.startDX);
+    newSpan=Math.min(fullSpan,Math.max(minSpan,newSpan));
+    const newMin=chartGesture.anchorTime-(midXpx-chartGeom.padL)/chartGeom.W*newSpan;
+    chartApplyView(newMin,newMin+newSpan);
   }else if(chartGesture.type==="pan" && ev.touches.length===1){
     const t=ev.touches[0];
-    chartPanX=chartGesture.startPan.x+(t.clientX-chartGesture.startX);
-    chartPanY=chartGesture.startPan.y+(t.clientY-chartGesture.startY);
-    clampChartPan();applyChartTransform();
+    const span=chartGesture.startMax-chartGesture.startMin;
+    const deltaTime=-((t.clientX-chartGesture.startX)/chartGeom.W)*span;
+    chartApplyView(chartGesture.startMin+deltaTime,chartGesture.startMax+deltaTime);
   }
 }
 function chartTouchEnd(ev){
   const wasGesture=!!chartGesture;
   if(ev.touches.length===0){
     chartGesture=null;
-    if(chartZoom<1.02)resetChartZoom();
+    if(!chartIsZoomed()){chartViewMin=null;chartViewMax=null}
     if(!wasGesture){
       const now=Date.now();
       if(now-chartLastTap<300)resetChartZoom();
       chartLastTap=now;
     }
-  }else if(ev.touches.length===1 && chartZoom>1.001){
+  }else if(ev.touches.length===1 && chartIsZoomed()){
     const t=ev.touches[0];
-    chartGesture={type:"pan",startX:t.clientX,startY:t.clientY,startPan:{x:chartPanX,y:chartPanY}};
+    chartGesture={type:"pan",startX:t.clientX,startMin:chartGeom.tMin,startMax:chartGeom.tMax};
   }
 }
 (function initChartGestures(){
@@ -960,14 +969,24 @@ function drawChart(){
   if(!temps.length && !meds.length && !plans.length){
     ctx.fillStyle="#9FB0BA";ctx.font="14px system-ui";ctx.textAlign="center";
     ctx.fillText("Henüz veri yok — ilk ölçümü ekle 🌡️",cssW/2,cssH/2);
+    chartGeom={padL,padR,W:0,cssW,tMin:0,tMax:1};chartFullMin=0;chartFullMax=1;
     return;
   }
 
-  // time range
+  // time range (tam / yakınlaştırılmamış veri aralığı)
   const allT=[...temps.map(x=>x.t),...meds.map(x=>x.t),...plans.map(x=>x.t)];
-  let tMin=Math.min(...allT), tMax=Math.max(...allT);
-  if(tMin===tMax){tMin-=30*60000;tMax+=30*60000}
-  const tPad=(tMax-tMin)*0.06;tMin-=tPad;tMax+=tPad;
+  let fullMin=Math.min(...allT), fullMax=Math.max(...allT);
+  if(fullMin===fullMax){fullMin-=30*60000;fullMax+=30*60000}
+  const tPad=(fullMax-fullMin)*0.06;fullMin-=tPad;fullMax+=tPad;
+  chartFullMin=fullMin;chartFullMax=fullMax;
+  // aktif görünüm: kullanıcı yakınlaştırdıysa o aralık, değilse tam aralık
+  let tMin=fullMin,tMax=fullMax;
+  if(chartViewMin!=null && chartViewMax!=null){
+    tMin=Math.max(fullMin,chartViewMin);
+    tMax=Math.min(fullMax,chartViewMax);
+    if(tMax-tMin<60000)tMax=tMin+60000;
+  }
+  chartGeom={padL,padR,W,cssW,tMin,tMax};
   // temp range
   let vMin=36,vMax=39.5;
   if(temps.length){
@@ -1139,7 +1158,7 @@ function init(){
   setInterval(updateBadge,30000);
   checkAlarms();
 }
-window.addEventListener("resize",()=>{resetChartZoom();if(document.getElementById("view-takip").classList.contains("active"))drawChart()});
+window.addEventListener("resize",()=>{resetChartZoom()});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkAlarms();updateBadge();syncWakeLock()}});
 init();
 </script>
