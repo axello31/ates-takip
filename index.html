@@ -122,8 +122,8 @@
   .btn-sm{padding:9px 12px;font-size:13px;border-radius:10px;width:auto}
 
   /* Chart */
-  .chart-wrap{position:relative;width:100%}
-  canvas{width:100%;display:block;border-radius:12px}
+  .chart-wrap{position:relative;width:100%;overflow:hidden;border-radius:12px}
+  canvas{width:100%;display:block;border-radius:12px;touch-action:none}
   .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
   .legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
   .legend .k{width:14px;height:3px;border-radius:2px}
@@ -262,7 +262,7 @@
 
     <div class="card">
       <h2>Ateş &amp; ilaç grafiği</h2>
-      <p class="sub">Ateş çizgisi, ilaçlar renkli işaretlerle aynı grafikte.</p>
+      <p class="sub">Ateş çizgisi, ilaçlar renkli işaretlerle aynı grafikte. İki parmakla yakınlaştır/uzaklaştır, yakınken tek parmakla kaydır.</p>
       <div class="chart-wrap">
         <canvas id="chart" height="230"></canvas>
       </div>
@@ -511,8 +511,8 @@ function renderPatientList(){
   names.forEach(n=>{
     const li=document.createElement("li");if(n===db.active)li.className="sel";
     li.innerHTML=`<span class="av">${n.trim().charAt(0).toUpperCase()}</span><span class="nm">${esc(n)}</span><span class="rn" title="Düzenle">✏️</span><span class="rm" title="Sil">🗑</span>`;
-    li.querySelector(".nm").onclick=()=>{db.active=n;save();refreshAll();closeSheet("patientOverlay")};
-    li.querySelector(".av").onclick=()=>{db.active=n;save();refreshAll();closeSheet("patientOverlay")};
+    li.querySelector(".nm").onclick=()=>{db.active=n;save();resetChartZoom();refreshAll();closeSheet("patientOverlay")};
+    li.querySelector(".av").onclick=()=>{db.active=n;save();resetChartZoom();refreshAll();closeSheet("patientOverlay")};
     li.querySelector(".rn").onclick=(e)=>{e.stopPropagation();renamePatient(n)};
     li.querySelector(".rm").onclick=(e)=>{e.stopPropagation();removePatient(n)};
     ul.appendChild(li);
@@ -762,6 +762,7 @@ function updateBadge(){
   });
   const b=document.getElementById("orderBadge");
   if(n>0){b.textContent=n;b.style.display="grid"}else b.style.display="none";
+  syncWakeLock();
 }
 
 /* ---------- alarm loop ---------- */
@@ -813,29 +814,128 @@ function beep(){
   }catch(e){}
 }
 
+/* ---------- ekranı uyanık tutma (wake lock) ---------- */
+// Not: Bu sadece uygulama sekmesi önde/açıkken işe yarar. Telefon tamamen
+// kilitlenir ya da uygulama kapatılırsa JavaScript durur, hiçbir web
+// uygulaması (bu dahil) o durumda ses çalamaz — bu bir tarayıcı kısıtı.
+let wakeLock=null;
+async function requestWakeLock(){
+  if(!("wakeLock"in navigator))return;
+  try{
+    wakeLock=await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release",()=>{wakeLock=null});
+  }catch(e){/* izin/gesture yoksa sessizce geç */}
+}
+function releaseWakeLock(){
+  if(wakeLock){const wl=wakeLock;wakeLock=null;wl.release().catch(()=>{})}
+}
+function hasPendingOrders(){
+  return Object.values(db.patients).some(p=>{
+    const s=ensureActiveSession(p);
+    return s&&s.orders.some(o=>!o.done);
+  });
+}
+function syncWakeLock(){
+  if(hasPendingOrders()){if(!wakeLock)requestWakeLock()}
+  else releaseWakeLock();
+}
+
 /* ---------- notifications permission ---------- */
 function refreshNotifState(){
   const btn=document.getElementById("permBtn");const note=document.getElementById("notifNote");
+  const warn="<br><br>⚠️ <b>Önemli:</b> Bu uyarılar sadece uygulama ekranda açıkken çalışır. Telefon kilitlenir ya da uygulamadan çıkarsan tarayıcı JavaScript'i durdurur — hiçbir web uygulaması o an ses çalamaz (bu bir Apple/tarayıcı kısıtı, gerçek Alarm/Saat uygulaması gibi çalışmaz). Bekleyen bir hatırlatma varken uygulama <b>ekranın kilitlenmesini otomatik engeller</b>; yine de telefonu elle kilitleme, uygulamayı önde tut.";
   if(!("Notification"in window)){
     btn.style.display="none";
-    note.innerHTML="Bu tarayıcı sistem bildirimi desteklemiyor. Uygulama <b>açıkken</b> yine de ekranda uyarı ve ses çıkar.";
+    note.innerHTML="Bu tarayıcı sistem bildirimi desteklemiyor. Uygulama açıkken yine de ekranda uyarı ve ses çıkar."+warn;
     return;
   }
   if(Notification.permission==="granted"){
     btn.style.display="none";
-    note.innerHTML="✅ Bildirim izni verildi. En güvenlisi: uygulama telefonda açık dursun. Ana ekrana eklersen daha uygulama gibi çalışır.";
+    note.innerHTML="✅ Bildirim izni verildi."+warn;
   }else if(Notification.permission==="denied"){
     btn.style.display="none";
-    note.innerHTML="🔕 Bildirim engelli. Uygulama <b>açıkken</b> yine ekranda uyarı + ses gelir. İzni tarayıcı ayarlarından açabilirsin.";
+    note.innerHTML="🔕 Bildirim engelli. İzni tarayıcı ayarlarından açabilirsin."+warn;
   }else{
     btn.style.display="flex";
-    note.innerHTML="İpucu: Uyarıların gelmesi için bu sekme açık kalmalı. Sayfayı <b>ana ekrana ekle</b>, telefon kilitliyken de titreşim/ses için açık tut.";
+    note.innerHTML="İpucu: Bildirim izni ver, ses/titreşim daha güvenilir çalışsın."+warn;
   }
 }
 function askPerm(){
   if(!("Notification"in window))return;
   Notification.requestPermission().then(()=>{refreshNotifState();beep();toast("Ayar güncellendi")});
 }
+
+/* ---------- chart zoom & pan (pinch ile büyüt/küçült, sürükle) ---------- */
+let chartZoom=1,chartPanX=0,chartPanY=0,chartGesture=null,chartLastTap=0;
+function applyChartTransform(){
+  const cv=document.getElementById("chart");
+  cv.style.transformOrigin="0 0";
+  cv.style.transform=`translate(${chartPanX}px,${chartPanY}px) scale(${chartZoom})`;
+}
+function clampChartPan(){
+  const wrap=document.getElementById("chart").parentElement;
+  const w=wrap.clientWidth,h=230;
+  const minX=Math.min(0,w-w*chartZoom),minY=Math.min(0,h-h*chartZoom);
+  chartPanX=Math.min(0,Math.max(minX,chartPanX));
+  chartPanY=Math.min(0,Math.max(minY,chartPanY));
+}
+function resetChartZoom(){chartZoom=1;chartPanX=0;chartPanY=0;applyChartTransform()}
+function chartTouchStart(ev){
+  const rect=ev.currentTarget.parentElement.getBoundingClientRect();
+  if(ev.touches.length===2){
+    const[t0,t1]=ev.touches;
+    const dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
+    const midX=(t0.clientX+t1.clientX)/2-rect.left,midY=(t0.clientY+t1.clientY)/2-rect.top;
+    chartGesture={type:"pinch",startDist:dist,startZoom:chartZoom,startPan:{x:chartPanX,y:chartPanY},startMid:{x:midX,y:midY}};
+  }else if(ev.touches.length===1 && chartZoom>1.001){
+    const t=ev.touches[0];
+    chartGesture={type:"pan",startX:t.clientX,startY:t.clientY,startPan:{x:chartPanX,y:chartPanY}};
+  }else{
+    chartGesture=null;
+  }
+}
+function chartTouchMove(ev){
+  if(!chartGesture)return;
+  ev.preventDefault();
+  const rect=ev.currentTarget.parentElement.getBoundingClientRect();
+  if(chartGesture.type==="pinch" && ev.touches.length===2){
+    const[t0,t1]=ev.touches;
+    const dist=Math.hypot(t1.clientX-t0.clientX,t1.clientY-t0.clientY);
+    const midX=(t0.clientX+t1.clientX)/2-rect.left,midY=(t0.clientY+t1.clientY)/2-rect.top;
+    const scale=Math.min(4,Math.max(1,chartGesture.startZoom*(dist/chartGesture.startDist)));
+    const anchorX=(chartGesture.startMid.x-chartGesture.startPan.x)/chartGesture.startZoom;
+    const anchorY=(chartGesture.startMid.y-chartGesture.startPan.y)/chartGesture.startZoom;
+    chartZoom=scale;chartPanX=midX-anchorX*scale;chartPanY=midY-anchorY*scale;
+    clampChartPan();applyChartTransform();
+  }else if(chartGesture.type==="pan" && ev.touches.length===1){
+    const t=ev.touches[0];
+    chartPanX=chartGesture.startPan.x+(t.clientX-chartGesture.startX);
+    chartPanY=chartGesture.startPan.y+(t.clientY-chartGesture.startY);
+    clampChartPan();applyChartTransform();
+  }
+}
+function chartTouchEnd(ev){
+  const wasGesture=!!chartGesture;
+  if(ev.touches.length===0){
+    chartGesture=null;
+    if(chartZoom<1.02)resetChartZoom();
+    if(!wasGesture){
+      const now=Date.now();
+      if(now-chartLastTap<300)resetChartZoom();
+      chartLastTap=now;
+    }
+  }else if(ev.touches.length===1 && chartZoom>1.001){
+    const t=ev.touches[0];
+    chartGesture={type:"pan",startX:t.clientX,startY:t.clientY,startPan:{x:chartPanX,y:chartPanY}};
+  }
+}
+(function initChartGestures(){
+  const cv=document.getElementById("chart");
+  cv.addEventListener("touchstart",chartTouchStart,{passive:true});
+  cv.addEventListener("touchmove",chartTouchMove,{passive:false});
+  cv.addEventListener("touchend",chartTouchEnd,{passive:true});
+  cv.addEventListener("touchcancel",chartTouchEnd,{passive:true});
+})();
 
 /* ---------- chart ---------- */
 function drawChart(){
@@ -1037,8 +1137,8 @@ function init(){
   setInterval(updateBadge,30000);
   checkAlarms();
 }
-window.addEventListener("resize",()=>{if(document.getElementById("view-takip").classList.contains("active"))drawChart()});
-document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkAlarms();updateBadge()}});
+window.addEventListener("resize",()=>{resetChartZoom();if(document.getElementById("view-takip").classList.contains("active"))drawChart()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkAlarms();updateBadge();syncWakeLock()}});
 init();
 </script>
 </body>
